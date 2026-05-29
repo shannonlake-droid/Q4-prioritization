@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q4 Prioritization Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f5f7; color: #1a1a2e; }
+
+  header {
+    background: linear-gradient(135deg, #0a2540 0%, #1b4f72 100%);
+    color: white; padding: 24px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  header p { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+  .badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px;
+    padding: 24px 32px 16px;
+  }
+  .summary-card {
+    background: white; border-radius: 10px; padding: 16px 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center;
+    border-top: 3px solid transparent; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .summary-card .count { font-size: 32px; font-weight: 800; line-height: 1; }
+  .summary-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; opacity: 0.6; }
+
+  .card-high { border-top-color: #e74c3c; } .card-high .count { color: #e74c3c; }
+  .card-med  { border-top-color: #f39c12; } .card-med  .count { color: #f39c12; }
+  .card-low  { border-top-color: #27ae60; } .card-low  .count { color: #27ae60; }
+  .card-na   { border-top-color: #95a5a6; } .card-na   .count { color: #95a5a6; }
+  .card-continue { border-top-color: #2980b9; } .card-continue .count { color: #2980b9; }
+  .card-rescope  { border-top-color: #8e44ad; } .card-rescope  .count { color: #8e44ad; }
+  .card-stop     { border-top-color: #c0392b; } .card-stop     .count { color: #c0392b; }
+  .card-start    { border-top-color: #16a085; } .card-start    .count { color: #16a085; }
+
+  .divider { width: 1px; background: #e0e0e0; margin: 0 4px; border-radius: 2px; }
+
+  .section-label { padding: 4px 32px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; display: grid; grid-template-columns: repeat(7,1fr); gap: 12px; }
+  .section-label span { text-align: center; }
+  .section-label .spacer { visibility: hidden; }
+
+  .tabs-container { padding: 8px 32px 0; }
+  .tabs { display: flex; gap: 6px; border-bottom: 2px solid #e0e0e0; padding-bottom: 0; }
+  .tab {
+    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 8px 8px 0 0; border: none; background: transparent;
+    color: #666; transition: all 0.2s; position: relative; bottom: -2px; border-bottom: 2px solid transparent;
+  }
+  .tab:hover { color: #0a2540; background: #f0f4f8; }
+  .tab.active { color: #0a2540; border-bottom: 2px solid #0a2540; background: white; }
+  .tab .tab-count { font-size: 10px; background: #e8edf2; border-radius: 10px; padding: 1px 6px; margin-left: 5px; }
+  .tab.active .tab-count { background: #0a2540; color: white; }
+
+  .focus-panel { display: none; padding: 20px 32px 32px; }
+  .focus-panel.active { display: block; }
+
+  .sub-section { margin-bottom: 24px; }
+  .sub-title { font-size: 13px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eee; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.07); font-size: 13px; }
+  thead th { background: #f0f4f8; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #555; border-bottom: 1px solid #e0e6ed; }
+  tbody tr { border-bottom: 1px solid #f0f2f5; transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafbfc; }
+  tbody td { padding: 10px 14px; vertical-align: top; line-height: 1.45; }
+  td.project { font-weight: 600; color: #1a2740; max-width: 280px; }
+  td.notes { color: #555; font-size: 12px; max-width: 320px; }
+
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .pill-high     { background: #fdecea; color: #c0392b; }
+  .pill-medium   { background: #fef9e7; color: #d35400; }
+  .pill-low      { background: #eafaf1; color: #1e8449; }
+  .pill-na       { background: #f2f3f4; color: #7f8c8d; }
+  .pill-tba      { background: #f2f3f4; color: #7f8c8d; }
+  .pill-continue { background: #ebf5fb; color: #1a5276; }
+  .pill-rescope  { background: #f5eef8; color: #6c3483; }
+  .pill-stop     { background: #fdedec; color: #922b21; }
+  .pill-start    { background: #e8f8f5; color: #0e6655; }
+  .pill-complete { background: #eaecee; color: #626567; }
+  .pill-awaiting { background: #fdf2e9; color: #935116; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Q4 FY26 Prioritization Dashboard</h1>
+    <p>Post-Reorganization Work Triage · Platform Brand & Marketing</p>
+  </div>
+  <div class="badge">Review: Fri 5/29 · 9:05–10:00am</div>
+</header>
+
+<div class="section-label">
+  <span>PRIORITY</span><span></span><span></span><span></span>
+  <span>ACTION</span><span></span><span></span>
+</div>
+
+<div class="summary-grid" id="summaryGrid">
+  <!-- Filled by JS -->
+</div>
+
+<div class="tabs-container">
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div id="panels"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const areas = [
+  {
+    id: "brand",
+    name: "Brand Strategy",
+    owner: "Jaime Close & Rene Hallock",
+    subsections: [
+      {
+        title: "Program 1: Business Platform Brand Strategy",
+        items: [
+          { project: "GBSG Intuit Platform Brand Strategy", priority: "High", action: "Continue", notes: "Updated workback plan in development by EOD 5/29. Next milestone: Platform Review 6/4 with Thomas." },
+          { project: "Brand Foundations", priority: "High", action: "Continue", notes: "Brand Foundations one-slider in progress; aiming to lock with Thomas during Platform Review on 6/4." },
+          { project: "Brand Architecture", priority: "High", action: "Continue", notes: "Prophet developing role of Intuit, QB, QBA, IES. Reviewing with Thomas on 6/4." },
+          { project: "Brand Narrative", priority: "High", action: "Continue", notes: "Working on Mother brief; aiming to lock with Thomas on 6/4. Risk: Mother availability, Gemini confirming by EOW 5/29." },
+          { project: "One Intuit Design Rollout", priority: "High", action: "Rescope", notes: "Rescoping to self-serve model. Risk: Bandwidth, Product/Marketing disconnect on timing." },
+        ]
+      },
+      {
+        title: "Program 2: Web Experiences",
+        items: [
+          { project: "Intuit.com Refresh", priority: "High", action: "Continue", notes: "Tracking to August Go-Live. Dependencies: Intuit Intelligence Positioning, Brand Narrative, Product Brands." },
+          { project: "Data Protection Promise", priority: "High", action: "Rescope", notes: "Rescoping to MVP. Risk: Bandwidth, x-functional deprioritization. June 1 regroup with Elise." },
+        ]
+      }
+    ]
+  },
+  {
+    id: "demandgen",
+    name: "Demand Gen",
+    owner: "Various",
+    subsections: [
+      {
+        title: "IBCC FY27 Q1 Campaign",
+        items: [
+          { project: "IBCC Creative Platform", priority: "High", action: "Continue", notes: "Locking creative platform concept by 7/30. Decision needed: A/E alignment (A: Tam, E: Thomas). Stakeholders: Greg, Todd Denbo." },
+        ]
+      },
+      {
+        title: "IES — Foundational / Ongoing",
+        items: [
+          { project: "FY26 Budget Reconciliation & FY27 Budget Input", priority: "High", action: "Continue", notes: "Finalize by 6/5." },
+          { project: "Measurement / Reporting", priority: "High", action: "Continue", notes: "DISQO – 6/10. Brand Lift – August." },
+          { project: "IAT Motion", priority: "Low", action: "Rescope", notes: "Reduce to every other week." },
+          { project: "All Assets on OIADM", priority: "Low", action: "Complete", notes: "Completed – all photography uploaded." },
+          { project: "Campaign Style Guide Finalized", priority: "Low", action: "Complete", notes: "Completed – cascaded to IAT." },
+          { project: "B2B OpMechs & Motions", priority: "Medium", action: "Rescope", notes: "Evaluate what stops, starts, continues & attendees." },
+          { project: "Mid Market Motions", priority: "Medium", action: "Continue", notes: "" },
+          { project: "Brand Activation Recap", priority: "Low", action: "Stop", notes: "Remove." },
+        ]
+      },
+      {
+        title: "IES — In-Progress Production",
+        items: [
+          { project: "JKR Brand Guidelines", priority: "High", action: "Continue", notes: "Need to discuss implementation." },
+          { project: "Videos – Product, Daymond John, CdM", priority: "Medium", action: "Continue", notes: "Finding solutions, pushing timelines." },
+          { project: "Edit – Data Disaster :30", priority: "Low", action: "Complete", notes: "Complete as of yesterday." },
+        ]
+      },
+      {
+        title: "IES — FY27 Planned Work",
+        items: [
+          { project: "IES Brand, Codified (One Intuit Design)", priority: "High", action: "Continue", notes: "New ONE INTUIT design guidelines. Evaluating naming scope." },
+          { project: '"You Need the Intuit ERP" 2.0', priority: "Medium", action: "Continue", notes: "Evolved pain-point campaign with proof messaging. Audience-first for modern CFO + vertical campaigns." },
+          { project: "Brand-to-Demand Engine (Always-On Creative Asset Engine)", priority: "Medium", action: "Continue", notes: "Resources needed. Brief and artifact outcome in development." },
+          { project: "Key Markets, Key Moments", priority: "N/A", action: "Continue", notes: "Own-the-Moment strategy: Las Vegas Oct, NY-FATE Winter, Sage Spring. Leverage Intuit Dome, NFL, Olympics." },
+        ]
+      },
+      {
+        title: "QuickBooks — Foundational / Ongoing",
+        items: [
+          { project: "QB Mother NY SOW/MSA/Onboarding", priority: "High", action: "Continue", notes: "MSA complete. SOW through Coupa approvals. POC: Alice, Megan." },
+          { project: "FY27 QuickBooks Campaign Development", priority: "High", action: "Continue", notes: "CWI R1: 6/15 → R2: 7/1 → In-field research: w/o 7/20 → Leadership review: w/o 7/27 → Lock: 8/7 → IAT Kick-off: 8/10." },
+          { project: "Quarterly QB Prospecting Campaign", priority: "Medium", action: "Continue", notes: "Workforce RTB: 5/29 · Free RTB: 6/12 · Intuit Intelligence RTB: 6/26. POC: Tori." },
+          { project: "QB Global Brand Model & WoW with INTL", priority: "Medium", action: "Continue", notes: "Goal: define global WoW for brand governance and FY27 campaigns. POC: Kirsty." },
+          { project: "QB FY26 Budget Forecast", priority: "Medium", action: "Continue", notes: "Confirm if $300K Q4 MC funds still needed. POC: Megan." },
+          { project: "QB Brand Foundations (Architecture, Voice & Tone)", priority: "N/A", action: "Continue", notes: "Workshop 5/29. POC: Megan, Alice (Rene and Bo)." },
+        ]
+      },
+      {
+        title: "QuickBooks — In-Progress Production",
+        items: [
+          { project: "HI Photography (One Intuit Design)", priority: "Medium", action: "Continue", notes: "Delivery 6/6 for in-product update before July launch. Impacted by Intuition layoffs – new date TBD." },
+          { project: "QB Valkyries Sponsorship", priority: "Medium", action: "Continue", notes: "LED banners: mid-June. Social content kicking off this week." },
+          { project: "QB Q4 Prospecting (HCM)", priority: "High", action: "Continue", notes: "Asset delivery + trafficking first w/o June." },
+          { project: "QB FY26 Promo (EDLP/Deep Discount)", priority: "Low", action: "Continue", notes: "50% EDLP Jul 1–Aug 2. 90% deep discount Aug 3–31." },
+          { project: "QB Visual Identity System (One Intuit Design)", priority: "High", action: "Continue", notes: "Must be ready for campaign asset development." },
+        ]
+      },
+      {
+        title: "IAS — Foundational / Ongoing",
+        items: [
+          { project: "Accountant Brand Campaign (durable FY27)", priority: "High", action: "Continue", notes: "$250K Q4 funding confirming. Brief V2 ready to circulate. Supports IAS, ProPartner, career pipeline." },
+        ]
+      },
+      {
+        title: "IAS — In-Progress Production",
+        items: [
+          { project: "One Intuit IAS Brand Guidelines Refresh", priority: "Medium", action: "Continue", notes: "Creative R2 on 5/26 – awaiting notes. Final handoff: 6/24." },
+          { project: "IAS GTM Paid Media Campaign", priority: "Low", action: "Continue", notes: "Assets live. Opportunity to improve with Q4 budget injection." },
+        ]
+      },
+      {
+        title: "Mailchimp — Foundational / Ongoing",
+        items: [
+          { project: "MC FY27 Campaign (Ongoing)", priority: "High", action: "Continue", notes: "Business brief approved. Always-on approach preferred. Sept peak for eComm. FY27 budget TBC." },
+        ]
+      },
+      {
+        title: "Mailchimp — In-Progress Production",
+        items: [
+          { project: "May GTM: Analytics AI", priority: "High", action: "Continue", notes: "BoF creative delivered. MoF R3 due wc 5/25. Go-live: May 28." },
+          { project: "MC Customer Story #2: Priority Bicycles", priority: "Medium", action: "Continue", notes: "Final creative development. Paid media confirmed – BoF focused." },
+          { project: "MC Customer Story #3: Gymwrap", priority: "Low", action: "Stop", notes: "Video component de-prioritized. Descoped 5/29 confirmed with PMM (Spencer Adkins) due to RIF." },
+        ]
+      },
+      {
+        title: "QB Advanced — Foundational / Ongoing",
+        items: [
+          { project: "QB Advanced Demand Gen", priority: "High", action: "Continue", notes: "Webinar topics (PMM)." },
+          { project: "QB Advanced Acquisition", priority: "High", action: "Continue", notes: "Dependency: ICP RFM product messaging (PMM), measurement plan." },
+          { project: "QB Advanced Construction", priority: "Medium", action: "Continue", notes: "ICP campaign performing. Scoping additional work to accelerate." },
+        ]
+      },
+      {
+        title: "QB Advanced — In-Progress Production",
+        items: [
+          { project: "Q4 Paid Media Creative (MoF) 'Most Powerful QB'", priority: "Medium", action: "Continue", notes: "Timing: late June TBD. Pivoting from workflow pillar based on 5/26 PMM messaging update." },
+          { project: "QuickBooks Advanced Sizzle Video", priority: "High", action: "Continue", notes: "Timing: late June. Impacted by layoffs – lead PMM and Intuition working team." },
+        ]
+      },
+      {
+        title: "QB Advanced — FY27 Planned",
+        items: [
+          { project: "QB Advanced 'Supernova Relaunch'", priority: "High", action: "Continue", notes: "Timing: late July / early Aug TBD. Dependency: ICP product messaging, Human Intelligence strategy (PMM)." },
+          { project: "QB Advanced Product Positioning / Strategy Research", priority: "Medium", action: "Stop", notes: "Research put on hold." },
+        ]
+      }
+    ]
+  },
+  {
+    id: "i4e",
+    name: "I4E",
+    owner: "Paige Coulier, Lynn Letukas, Steve Goyette",
+    subsections: [
+      {
+        title: "High School",
+        items: [
+          { project: "Virtual Educator Conference", priority: "High", action: "Continue", notes: "Event date 6/23. Team shifted resources. Reducing scope on event experiences and email promotions." },
+          { project: "Back to School Campaign", priority: "Medium", action: "Rescope", notes: "GTM support for new College Board partnership. Delaying self-checkout launch. Impact: Slower HS adoption in FY27." },
+          { project: "Research & Analytics", priority: "High", action: "Rescope", notes: "Brand health continues at reduced scope. Analytics at risk. Required annual reporting at risk." },
+          { project: "Implementation", priority: "High", action: "Continue", notes: "134 Professional Development sessions in Q4. Leveraging external partner to deliver." },
+          { project: "Food Truck Program", priority: "Medium", action: "Rescope", notes: "Cancelled summer Teacher Summit. Impact: Delayed QB adoption by school districts." },
+        ]
+      },
+      {
+        title: "Higher Education",
+        items: [
+          { project: "Career Pipeline Program (QuickBooks)", priority: "High", action: "Continue", notes: "Evaluating creative and analytics impact. Meeting with Intuition on 6/3 for Back-to-School launch support." },
+          { project: "CashCourse", priority: "Medium", action: "Rescope", notes: "Reducing GTM support. Impact: Delayed adoption by universities." },
+          { project: "Global Expansion – UK & Canada (QuickBooks)", priority: "Low", action: "Stop", notes: "Stopping UK/Canada curriculum scoping. Impact: Delayed QB adoption in UK and Canadian markets." },
+        ]
+      }
+    ]
+  },
+  {
+    id: "intuition",
+    name: "Intuition",
+    owner: "Intuition Team",
+    subsections: [
+      {
+        title: "One Intuit Design Brand Refresh",
+        items: [
+          { project: "Phase 1: Foundations", priority: "N/A", action: "Continue", notes: "🟢 Design System (JKR) · 🟢 Customer Validation + Research · 🟡 Guidelines + Asset Delivery · 🟢 Brand Trainings + Launch Toolkit · 🟢 TOV" },
+          { project: "Phase 2: Brand Systems / Asset Delivery", priority: "N/A", action: "Rescope", notes: "🔴 Event Guidelines (descoped, RIF) · 🟡 Motion Design ($250K partner, creative lead gap) · 🟡 Photography ($200K production, lead gap) · 🟡 Illustration ($50K, in-house impacted) · 🟢 Iconography · 🟡 AUI System + Guidelines (slowing down)" },
+          { project: "Phase 3: Touchpoints", priority: "N/A", action: "Rescope", notes: "🔴 Digital/Internal Signage · 🔴 External GTM Owned Channels · 🔴 Swag · 🟢 Sizzle Video (JKR) · 🔴 Employee Touchpoints · 🔴 Workplace. Question: Still a priority if no wordmark change?" },
+          { project: "Intuit.com Website", priority: "N/A", action: "Continue", notes: "🟢 Redesign in progress, paused for Intuit Intelligence messaging from product team." },
+          { project: "Brand Agent AI", priority: "N/A", action: "Rescope", notes: "🔴 Lead impacted by RIF. Q: Lean on Chris Miller to build, or get budget for new lead?" },
+          { project: "Product UX Design", priority: "N/A", action: "Continue", notes: "🟢 In-Product UX Design via Metalabs (Alastair). Dependent for product rollout." },
+          { project: "Visual Identity Work w/ JKR", priority: "N/A", action: "Continue", notes: "🟢 IES Visual Identity · 🟢 IAS Visual Identity. Creative lead oversight needed." },
+          { project: "Design Rollout across Internal & Product Teams", priority: "N/A", action: "Continue", notes: "🟡 Staffing risk. Pending: CG alignment on FY27 scope. Full impact assessment ongoing." },
+        ]
+      },
+      {
+        title: "IES",
+        items: [
+          { project: "Events & Guerilla", priority: "N/A", action: "Continue", notes: "Event complete. 🟡 Christine Di Martino interview for YT + social cutdown delayed (Maria, RIF)." },
+          { project: "Daymond John", priority: "N/A", action: "Continue", notes: "🟡 YT version pending, sourcing editing resource due to RIF (Maria)." },
+          { project: "Hero Sizzle", priority: "N/A", action: "Continue", notes: "🟢 In-progress. Storyboards week of 6/1. End of June delivery (Ruth)." },
+          { project: ":30 Data Disaster Cut", priority: "N/A", action: "Continue", notes: "🟢 In-progress. Hoping to wrap by end of June (Ruth)." },
+          { project: "Campaign Style Guide", priority: "N/A", action: "Complete", notes: "✅ Delivered." },
+          { project: "IES Tabloid for RCC Diocese", priority: "N/A", action: "Complete", notes: "🟢 Finalizing – received late feedback." },
+        ]
+      },
+      {
+        title: "Intuit Platform",
+        items: [
+          { project: "Intuition AI Tiger Team", priority: "N/A", action: "Rescope", notes: "🟡 Lost 2 members. Q: Who drives? Can Chris Miller team build and Intuition provide input? Timing TBD." },
+          { project: "Refresh Clip Art Social (Jan–Jul 2026)", priority: "N/A", action: "Stop", notes: "🔴 Lost 2 designers. Emergent asks or organic social as bandwidth allows, or agency partner." },
+          { project: "Behind the Biz Social Series", priority: "N/A", action: "Stop", notes: "🔴 RIF – lost video team and designers." },
+          { project: "Intuit – Security & Privacy Web Redesign", priority: "N/A", action: "Start", notes: "🟢 June 8 kickoff. Creative staffed. Producer lost – need to reassign." },
+          { project: "IBCC Creative Platform / Campaign", priority: "N/A", action: "Continue", notes: "🟢 Kicked off 5/27. R1 concepts 6/11. $180K Q4 pre-pro + $20M FY27 budget. Team not impacted by layoffs." },
+        ]
+      },
+      {
+        title: "QuickBooks",
+        items: [
+          { project: "FY26 QBOA July Release – Sizzle Video", priority: "N/A", action: "Rescope", notes: "🟡 RIF impacted video team. Agency may be needed. Brief not yet finalized. Q: QBOA vs Supernova priority for motion?" },
+          { project: "FY26 QBOA July Release – Paid Creative", priority: "N/A", action: "Stop", notes: "🔴 No request received yet (Awaiting Intake)." },
+          { project: "FY26 QBOA July Release – Lifecycle", priority: "N/A", action: "Continue", notes: "🟡 LCM designer impacted by RIF – redistribution possible. Awaiting intake. Laura connecting with Chris K. after PTO." },
+          { project: "Supernova", priority: "N/A", action: "Rescope", notes: "🟡 Transformation team will request Intuition motion support. Motion designers strapped. BAM needs TBD." },
+        ]
+      },
+      {
+        title: "Mailchimp",
+        items: [
+          { project: "Paid Advertising – FY26 Optimizations & Sandbox (Always On)", priority: "N/A", action: "Rescope", notes: "🟡 Templates in Celtra only. No net new asks outside headline/image/AUI updates. FY27: recommend agency partner." },
+          { project: "Mailchimp FY26 WhatsApp Launch Campaign", priority: "N/A", action: "Stop", notes: "🔴 Not kicked off. RIF bandwidth constraints. Q: Is MC International still a priority? Media budget?" },
+          { project: "Mailchimp FY26 WhatsApp Sizzle Video", priority: "N/A", action: "Stop", notes: "🔴 Not kicked off. No video team due to RIF." },
+          { project: "FY27 Peak Season GTM (Company Release)", priority: "N/A", action: "Stop", notes: "🔴 No video team or designer. Needs: Full designer, Motion Designer, Campaigns (paid ads). Recommend agency partner." },
+          { project: "FY26 Mailchimp May GTM – Analytics AI / One-Click Pixel", priority: "N/A", action: "Continue", notes: "🟢 Continuing." },
+          { project: "FY26 Customer Content", priority: "N/A", action: "Rescope", notes: "🟡 No video team or editorial staff. Take on emergent requests; sunset for FY27." },
+          { project: "FY26 MC May Customer Stories – Paid Media", priority: "N/A", action: "Stop", notes: "Priority Bikes delivered 5/28. ✅ Gymwrap descoped 5/29 (confirmed with Spencer Adkins)." },
+          { project: "New Mailchimp Work (Not Kicked Off)", priority: "N/A", action: "Rescope", notes: "Agentic Marketing Shift GTM, New Creative Platform, Q3 ABM Sales Plays 4 & 5. Needs direction on priority." },
+          { project: "Partner Marketing Team", priority: "N/A", action: "Start", notes: "🟢 Canva Influencer Pilot · Ratings & Reviews (GEO) · Square Partnership MC · Mailchimp ELM Refresh · AI App Partnerships (OpenAI, Google, Anthropic) · Google Ads & Analytics Audience Sync. Need writer resource (possibly Jacqui Tsui)." },
+        ]
+      },
+      {
+        title: "Intuition Lifecycle Team",
+        items: [
+          { project: "Mid-Market / QBO Advanced (Chris)", priority: "N/A", action: "Continue", notes: "Still moving regularly. Workflow automation next big thing (Luke)." },
+          { project: "Events Lifecycle (Sonaly)", priority: "N/A", action: "Continue", notes: "Bold Orange funding can flex to support other workstreams. ELM to determine FY27 budget solution." },
+          { project: "SMB Lifecycle (Dawn-Marie & Nancy)", priority: "N/A", action: "Rescope", notes: "PMM was hit hard. One manager lost. Overall decrease in work expected. Regroup next week." },
+          { project: "Transformational Growth / AURA (Gaurav)", priority: "N/A", action: "Rescope", notes: "Overall decrease expected. BAM IPD toolkit/component library impacted – critical need. Intuition to take on playbook library maintenance Q4." },
+          { project: "Mailchimp & Services Lifecycle (Dee)", priority: "N/A", action: "Rescope", notes: "Some shuffling occurred. Overall decrease in work expected." },
+        ]
+      }
+    ]
+  },
+  {
+    id: "sra",
+    name: "SRA",
+    owner: "SRA Team",
+    subsections: [
+      {
+        title: "Analytics & Research",
+        items: [
+          { project: "BAP & ROI Analysis", priority: "High", action: "Continue", notes: "Ad hoc as needed." },
+          { project: "QB Creative Performance Analysis", priority: "High", action: "Continue", notes: "Ad hoc as needed." },
+          { project: "IES Creative Performance Analysis", priority: "High", action: "Continue", notes: "Ad hoc as needed." },
+          { project: "CMO Dashboard", priority: "High", action: "Continue", notes: "Quarterly / Monthly cadence." },
+          { project: "QB & MC Brand Long-Term Trend Analysis", priority: "High", action: "Continue", notes: "Ad hoc as needed." },
+          { project: "Ecosystem Brand Health 'Dashboard' Table", priority: "High", action: "Rescope", notes: "Quarterly cadence." },
+          { project: "BHT – Intuit, QB, MC", priority: "High", action: "Rescope", notes: "Quarterly cadence." },
+          { project: "IES Brand Health", priority: "High", action: "Rescope", notes: "2x per year." },
+          { project: "IES Campaign Measurement", priority: "High", action: "Rescope", notes: "2x per year." },
+          { project: "Naming Studies", priority: "High", action: "Rescope", notes: "Ad hoc as needed." },
+          { project: "I4E Data & Analytics Support", priority: "Medium", action: "Rescope", notes: "Daily. New Scope: 20% analyst time/week + continue Concorde support." },
+          { project: "I4E Brand Health", priority: "Medium", action: "Rescope", notes: "2x per year." },
+          { project: "QB Platform Adoption Pre/Post Research", priority: "Medium", action: "Rescope", notes: "2x per year." },
+          { project: "Synthetic Persona Pilot (In-house & 3rd Party)", priority: "TBA", action: "TBA", notes: "Discuss if still a priority." },
+          { project: "Accountants Brand Health – QB", priority: "Low", action: "Rescope", notes: "2x per year." },
+          { project: "MC Campaign Measurement", priority: "Low", action: "Rescope", notes: "1x per year." },
+          { project: "Comms Dashboard", priority: "Low", action: "Stop", notes: "Daily. Discuss if still a priority." },
+          { project: "Intuit Brand Campaign Measurement", priority: "Low", action: "Stop", notes: "" },
+          { project: "US Employer Brand Tracker", priority: "Low", action: "Stop", notes: "1x per year." },
+          { project: "QB 2x/Year BHT Toplines", priority: "Low", action: "Stop", notes: "Replaces fuller decks." },
+        ]
+      }
+    ]
+  }
+];
+
+// ─── COUNTS ──────────────────────────────────────────────────────────────────
+
+function allItems() {
+  return areas.flatMap(a => a.subsections.flatMap(s => s.items));
+}
+
+function countBy(fn) {
+  return allItems().reduce((acc, item) => {
+    const key = fn(item);
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function priorityCounts() { return countBy(i => i.priority.toLowerCase()); }
+function actionCounts() {
+  return allItems().reduce((acc, item) => {
+    let a = item.action.toLowerCase();
+    if (a === "continue" || a === "complete") acc["continue"] = (acc["continue"] || 0) + 1;
+    else if (a.includes("stop")) acc["stop"] = (acc["stop"] || 0) + 1;
+    else if (a.includes("rescope")) acc["rescope"] = (acc["rescope"] || 0) + 1;
+    else if (a === "start") acc["start"] = (acc["start"] || 0) + 1;
+    else acc["other"] = (acc["other"] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function areaItemCount(area) { return area.subsections.flatMap(s => s.items).length; }
+
+// ─── RENDER SUMMARY ──────────────────────────────────────────────────────────
+
+function renderSummary() {
+  const pc = priorityCounts();
+  const ac = actionCounts();
+  const grid = document.getElementById("summaryGrid");
+  const cards = [
+    { cls: "card-high",     count: pc["high"]   || 0, label: "High Priority" },
+    { cls: "card-med",      count: pc["medium"] || 0, label: "Medium Priority" },
+    { cls: "card-low",      count: pc["low"]    || 0, label: "Low Priority" },
+    { cls: "card-na",       count: (pc["n/a"]||0) + (pc["tba"]||0), label: "Unrated" },
+    { cls: "card-continue", count: ac["continue"] || 0, label: "Continue / Complete" },
+    { cls: "card-rescope",  count: ac["rescope"]  || 0, label: "Rescope" },
+    { cls: "card-stop",     count: ac["stop"]     || 0, label: "Stop" },
+    { cls: "card-start",    count: ac["start"]    || 0, label: "Start" },
+  ];
+  // Insert divider after index 3
+  grid.innerHTML = cards.map((c, i) =>
+    (i === 4 ? `<div class="divider"></div>` : '') +
+    `<div class="summary-card ${c.cls}"><div class="count">${c.count}</div><div class="label">${c.label}</div></div>`
+  ).join('');
+}
+
+// ─── RENDER TABS ─────────────────────────────────────────────────────────────
+
+function renderTabs() {
+  const tabsEl = document.getElementById("tabs");
+  const panelsEl = document.getElementById("panels");
+
+  tabsEl.innerHTML = areas.map((a, i) =>
+    `<button class="tab ${i===0?'active':''}" onclick="switchTab('${a.id}')" id="tab-${a.id}">
+      ${a.name} <span class="tab-count">${areaItemCount(a)}</span>
+    </button>`
+  ).join('');
+
+  panelsEl.innerHTML = areas.map((a, i) =>
+    `<div class="focus-panel ${i===0?'active':''}" id="panel-${a.id}">
+      ${renderArea(a)}
+    </div>`
+  ).join('');
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.focus-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+// ─── RENDER AREA ─────────────────────────────────────────────────────────────
+
+function pillClass(val) {
+  const v = (val || '').toLowerCase();
+  if (v === 'high') return 'pill-high';
+  if (v === 'medium') return 'pill-medium';
+  if (v === 'low') return 'pill-low';
+  if (v === 'tba') return 'pill-tba';
+  if (v === 'n/a' || v === '') return 'pill-na';
+  return 'pill-na';
+}
+
+function actionPillClass(val) {
+  const v = (val || '').toLowerCase();
+  if (v === 'continue') return 'pill-continue';
+  if (v === 'complete') return 'pill-complete';
+  if (v.includes('rescope')) return 'pill-rescope';
+  if (v.includes('stop')) return 'pill-stop';
+  if (v === 'start') return 'pill-start';
+  if (v.includes('awaiting')) return 'pill-awaiting';
+  if (v === 'tba') return 'pill-tba';
+  if (v.includes('continue') && v.includes('start')) return 'pill-start';
+  return 'pill-na';
+}
+
+function renderArea(area) {
+  const areaStats = area.subsections.flatMap(s => s.items).reduce((acc, item) => {
+    const a = item.action.toLowerCase();
+    if (a === 'continue' || a === 'complete' || a.includes('continue')) acc.continue++;
+    else if (a.includes('stop')) acc.stop++;
+    else if (a.includes('rescope')) acc.rescope++;
+    else if (a === 'start' || a.includes('start')) acc.start++;
+    return acc;
+  }, {continue: 0, stop: 0, rescope: 0, start: 0});
+
+  const statBadges = `
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+      ${areaStats.continue ? `<span class="pill pill-continue">▶ Continue: ${areaStats.continue}</span>` : ''}
+      ${areaStats.rescope  ? `<span class="pill pill-rescope">⟳ Rescope: ${areaStats.rescope}</span>` : ''}
+      ${areaStats.stop     ? `<span class="pill pill-stop">■ Stop: ${areaStats.stop}</span>` : ''}
+      ${areaStats.start    ? `<span class="pill pill-start">+ Start: ${areaStats.start}</span>` : ''}
+    </div>`;
+
+  const tables = area.subsections.map(sub => `
+    <div class="sub-section">
+      <div class="sub-title">${sub.title}</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32%">Project / Work Stream</th>
+            <th style="width:10%">Priority</th>
+            <th style="width:12%">Action</th>
+            <th>Notes / Impact / Timing</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sub.items.map(item => `
+          <tr>
+            <td class="project">${item.project}</td>
+            <td><span class="pill ${pillClass(item.priority)}">${item.priority}</span></td>
+            <td><span class="pill ${actionPillClass(item.action)}">${item.action}</span></td>
+            <td class="notes">${item.notes}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('');
+
+  return statBadges + tables;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+renderSummary();
+renderTabs();
+</script>
+</body>
+</html>
